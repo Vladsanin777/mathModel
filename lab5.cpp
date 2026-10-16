@@ -11,74 +11,83 @@ struct Point {
     double x2;
 };
 
+enum OperatorSeed {
+    Min, Max
+};
+
 enum Operator {
     Less, More, Equal
 };
 
-struct Line {
-    double A;
-    double B;
-    double C;
+struct Limit {
+    std::vector<double> x;
     Operator type;
 
-    Line(double a, double b, double c, Operator t = Less)
-        : A{a}, B{b}, C{c}, type{t} {}
+    Line(std::vector<double> & _x, Operator t = Less)
+        : x{_x}, type{t} {}
 };
 
-struct LineRoot {
-    double A;
-    double B;
+struct Seed {
+    std::vector<double> x;
+    OperatorSeed type;
+
+    Line(std::vector<double> & _x, OperatorSeed t = Max)
+        : x{xs}, type{t} {}
 };
 
 using Matrix = std::vector<Line>;
 using Points = std::vector<Point>;
 
-class Simplex {
-private: LineRoot m_root;
+class MathSystem {
+private:
+    LineSeed m_seed;
     const Matrix m_matrix;
     Points m_points;
-    double m_maxRoot;
-    Point m_maxPoint;
-    double m_minRoot;
-    Point m_minPoint;
+    double m_targetRoot;
+    Point m_targetPoint;
     
 public:
-    Simplex(LineRoot root, Matrix matrix) : m_root{root}, m_matrix{matrix} {
-        calculate();
-    }
+    MathSystem(LineSeed root, Matrix matrix) : m_root{root}, m_matrix{matrix} {}
 
-    void printMaxPoint() {
-        std::cout << "The maximum is reached at point (" << m_maxPoint.x1 << "; "
-                << m_maxPoint.x2 << ")\nL_max = " << m_maxRoot << std::endl;
-    }
+    void printTargetPoint() {
+        std::cout << "The target point (\n\t"
 
-    void printMinPoint() {
-        std::cout << "The minimum is reached at point (" << m_minPoint.x1 << "; "
-                << m_minPoint.x2 << ")\nL_max = " << m_minRoot << std::endl;
+        for (const double & x : point.x)
+            std::cout << point.x[i] << "; ";
+
+        std::cout << ")\nL = " << m_maxRoot << std::endl;
     }
 
     void printAll() {
         std::cout << "Count points: " << m_points.size() << std::endl;
+
         for (const auto& point : m_points) {
             double currentRoot = calculateRoot(point);
-            std::cout << "Point (" << point.x1 << "; " << point.x2 << ") -> L = " << currentRoot << std::endl;
+            std::cout << "Point (\n\t";
+
+            for (const double & x : point.x)
+                std::cout << point.x[i] << "; ";
+
+            std::cout << ") -> L = " << currentRoot << std::endl;
         }
     }
 
 private:
-    bool checkConstraints(double x1, double x2) {
+    bool checkConstraints(std::vector<double> x) {
+
         for (const Line& line : m_matrix) {
-            double value = line.A * x1 + line.B * x2;
+            for (size_t i = 0; i < )
+            double value = line.x[0] * x[0] + line.x[1] * x[1];
             switch (line.type) {
-            case Less:
-                if (value > line.C + EPSILON) return false;
-                break;
-            case More:
-                if (value < line.C - EPSILON) return false;
-                break;
-            case Equal:
-                if (abs(value - line.C) > EPSILON) return false;
-                break;
+                case Less:
+                    if (value > line.C + EPSILON) return false;
+                    break;
+                case More:
+                    if (value < line.C - EPSILON) return false;
+                    break;
+                case Equal:
+                    if (abs(value - line.C) > EPSILON) return false;
+                    break;
             }
         }
         return true;
@@ -98,7 +107,7 @@ private:
         return m_root.A * p.x1 + m_root.B * p.x2;
     }
 
-    void calculate() {
+    void symplex() {
         for (size_t i = 0; i < m_matrix.size(); ++i) {
             for (size_t j = i + 1; j < m_matrix.size(); ++j) {
                 Point intersection;
@@ -109,34 +118,43 @@ private:
                 }
             }
         }
-        findMinPoint();
-        findMaxPoint();
+
+        switch (m_seed->type) {
+            case Min:
+                findMinPoint();
+                break;
+            case Max:
+                findMaxPoint();
+                break;
+            default:
+                break;
+        }
     }
 
     void findMinPoint() {
-        m_minPoint = m_points[0];
-        m_minRoot = calculateRoot(m_points[0]);
+        m_targetPoint = m_points[0];
+        m_targetRoot = calculateRoot(m_points[0]);
 
         for (const auto& point : m_points) {
             double currentRoot = calculateRoot(point);
             
             if (currentRoot < m_minRoot) {
-                m_minRoot = currentRoot;
-                m_minPoint = point;
+                m_targetRoot = currentRoot;
+                m_targetPoint = point;
             }
         }
     }
 
     void findMaxPoint() {
-        m_maxPoint = m_points[0];
-        m_maxRoot = calculateRoot(m_points[0]);
+        m_targetPoint = m_points[0];
+        m_targetRoot = calculateRoot(m_points[0]);
 
         for (const auto& point : m_points) {
             double currentRoot = calculateRoot(point);
             
             if (currentRoot > m_maxRoot) {
-                m_maxRoot = currentRoot;
-                m_maxPoint = point;
+                m_targetRoot = currentRoot;
+                m_targetPoint = point;
             }
         }
     }
@@ -144,7 +162,7 @@ private:
 
 int main() {
     // 30*x1 + 40*x2
-    LineRoot root {
+    LineSeed root {
         30.0, 40.0
     };
 
