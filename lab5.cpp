@@ -6,48 +6,42 @@
 
 #define EPSILON 0.00001
 
-struct Point {
-    double x1;
-    double x2;
-};
-
-enum OperatorSeed {
-    Min, Max
-};
-
-enum Operator {
-    Less, More, Equal
-};
-
-struct Limit {
-    std::vector<double> x;
-    Operator type;
-
-    Line(std::vector<double> & _x, Operator t = Less)
-        : x{_x}, type{t} {}
-};
-
-struct Seed {
-    std::vector<double> x;
-    OperatorSeed type;
-
-    Line(std::vector<double> & _x, OperatorSeed t = Max)
-        : x{xs}, type{t} {}
-};
-
-using Matrix = std::vector<Line>;
-using Points = std::vector<Point>;
-
+template<const size_t _VARIABLES, const size_t _LIMITS>
 class MathSystem {
+public:
+    struct Point {
+        double x[_VARIABLES] = {0};
+    };
+
+    enum OperatorSeed {
+        Min, Max
+    };
+
+    enum OperatorLimit {
+        Less, More, Equal
+    };
+
+    struct Limit {
+        double x[_VARIABLES + 1] = {0};
+        OperatorLimit type;
+    };
+
+    struct Seed {
+        double x[_VARIABLES] = {0};
+        OperatorSeed type;
+    };
+
+    using Limits = Limit[_LIMITS];
+    using Points = Point[_LIMITS - 1];
+
 private:
-    LineSeed m_seed;
-    const Matrix m_matrix;
+    const Seed m_seed;
+    const Limits m_limits;
     Points m_points;
     double m_targetRoot;
     Point m_targetPoint;
     
-public:
-    MathSystem(LineSeed root, Matrix matrix) : m_root{root}, m_matrix{matrix} {}
+    MathSystem(Seed seed, Limits limits) : m_seed{seed}, m_limits{limits} {}
 
     void printTargetPoint() {
         std::cout << "The target point (\n\t"
@@ -74,32 +68,78 @@ public:
 
 private:
     bool checkConstraints(std::vector<double> x) {
-
-        for (const Line& line : m_matrix) {
-            for (size_t i = 0; i < )
-            double value = line.x[0] * x[0] + line.x[1] * x[1];
-            switch (line.type) {
+        for (const Limit & limit : m_matrix) {
+            double value{0.0};
+            for (size_t i = 0; i < x.size(); i++)
+                value += limit.x[i] * x[i];
+            switch (limit.type) {
                 case Less:
-                    if (value > line.C + EPSILON) return false;
+                    if (value > limit.x[limit.x.size() - 1] + EPSILON)
+                        return false;
                     break;
                 case More:
-                    if (value < line.C - EPSILON) return false;
+                    if (value < limit.x[limit.x.size() - 1] - EPSILON)
+                        return false;
                     break;
                 case Equal:
-                    if (abs(value - line.C) > EPSILON) return false;
+                    if (abs(value - limit.x[limit.x.size() - 1]) > EPSILON)
+                        return false;
                     break;
             }
         }
         return true;
     }
 
-    static bool findIntersection(Line line1, Line line2, Point& outPoint) {
-        double det = line1.A * line2.B - line1.B * line2.A;
+    static bool findIntersection(const std::vector<Limit>& limits, Point& outPoint) {
+        if (limits.empty()) return false;
         
-        if (std::abs(det) < EPSILON) return false;
+        size_t n = _LIMITS;
         
-        outPoint.x1 = (line1.C * line2.B - line1.B * line2.C) / det;
-        outPoint.x2 = (line1.A * line2.C - line1.C * line2.A) / det;
+        std::vector<std::vector<double>> mat(n, std::vector<double>(n + 1));
+        for (size_t i = 0; i < n; ++i) {
+            if (limits[i].coeff.size() < n + 1) return false; // Проверка корректности данных
+            for (size_t j = 0; j <= n; ++j) {
+                mat[i][j] = limits[i].coeff[j];
+            }
+        }
+
+        for (size_t i = 0; i < n; ++i) {
+            size_t maxRow = i;
+            for (size_t k = i + 1; k < n; ++k) {
+                if (std::abs(mat[k][i]) > std::abs(mat[maxRow][i])) {
+                    maxRow = k;
+                }
+            }
+            
+            if (maxRow != i) {
+                std::swap(mat[i], mat[maxRow]);
+            }
+
+            if (std::abs(mat[i][i]) < EPSILON) {
+                return false; 
+            }
+
+            for (size_t k = i + 1; k < n; ++k) {
+                double c = -mat[k][i] / mat[i][i];
+                for (size_t j = i; j <= n; ++j) {
+                    if (i == j) {
+                        mat[k][j] = 0;
+                    } else {
+                        mat[k][j] += c * mat[i][j];
+                    }
+                }
+            }
+        }
+
+        outPoint.coords.resize(n);
+        for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
+            double sum = mat[i][n];
+            for (size_t j = i + 1; j < n; ++j) {
+                sum -= mat[i][j] * outPoint.coords[j];
+            }
+            outPoint.coords[i] = sum / mat[i][i];
+        }
+
         return true;
     }
 
@@ -162,7 +202,7 @@ private:
 
 int main() {
     // 30*x1 + 40*x2
-    LineSeed root {
+    Seed root {
         30.0, 40.0
     };
 
