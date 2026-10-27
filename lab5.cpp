@@ -24,11 +24,19 @@ public:
     struct Limit {
         double x[_VARIABLES + 1] = {0};
         OperatorLimit type;
+        Seed(double _x[_VARIABLES], OperatorLimit _type)
+                : x{_x}, type{_type} {}
+        Seed(double _x[_VARIABLES])
+                : x{_x}, type{Less} {}
     };
 
     struct Seed {
         double x[_VARIABLES] = {0};
         OperatorSeed type;
+        Seed(double _x[_VARIABLES], OperatorSeed _type)
+                : x{_x}, type{_type} {}
+        Seed(double _x[_VARIABLES])
+                : x{_x}, type{MAX} {}
     };
 
     using Limits = Limit[_LIMITS];
@@ -41,7 +49,11 @@ private:
     double m_targetRoot;
     Point m_targetPoint;
     
-    MathSystem(Seed seed, Limits limits) : m_seed{seed}, m_limits{limits} {}
+    MathSystem(Seed seed, Limits limits)
+            : m_seed{seed}, m_limits{limits} {}
+
+    MathSystem(const MathSystem& system)
+            : m_seed{system.m_seed}, m_limits{system.m_limits} {}
 
     void printTargetPoint() {
         std::cout << "The target point (\n\t"
@@ -67,11 +79,11 @@ private:
     }
 
 private:
-    bool checkConstraints(std::vector<double> x) {
+    bool checkConstraints(const Point& point) {
         for (const Limit & limit : m_matrix) {
             double value{0.0};
-            for (size_t i = 0; i < x.size(); i++)
-                value += limit.x[i] * x[i];
+            for (size_t i = 0; i < _VARIABLES; i++)
+                value += limit.x[i] * point.x[i];
             switch (limit.type) {
                 case Less:
                     if (value > limit.x[limit.x.size() - 1] + EPSILON)
@@ -90,22 +102,20 @@ private:
         return true;
     }
 
-    static bool findIntersection(const std::vector<Limit>& limits, Point& outPoint) {
+    static bool findIntersection(Point& outPoint) {
         if (limits.empty()) return false;
         
-        size_t n = _LIMITS;
-        
-        std::vector<std::vector<double>> mat(n, std::vector<double>(n + 1));
-        for (size_t i = 0; i < n; ++i) {
-            if (limits[i].coeff.size() < n + 1) return false; // Проверка корректности данных
-            for (size_t j = 0; j <= n; ++j) {
+        double mat[_LIMITS][_LIMITS + 1] {};
+        for (size_t i = 0; i < _LIMITS; i++) {
+            if (limits[i].coeff.size() < _LIMITS + 1) return false;
+            for (size_t j = 0; j < _LIMITS + 1; j++) {
                 mat[i][j] = limits[i].coeff[j];
             }
         }
 
-        for (size_t i = 0; i < n; ++i) {
+        for (size_t i = 0; i < _LIMITS; i++) {
             size_t maxRow = i;
-            for (size_t k = i + 1; k < n; ++k) {
+            for (size_t k = i + 1; k < _LIMITS; k++) {
                 if (std::abs(mat[k][i]) > std::abs(mat[maxRow][i])) {
                     maxRow = k;
                 }
@@ -131,28 +141,30 @@ private:
             }
         }
 
-        outPoint.coords.resize(n);
-        for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
-            double sum = mat[i][n];
-            for (size_t j = i + 1; j < n; ++j) {
-                sum -= mat[i][j] * outPoint.coords[j];
+        for (size_t i {_LIMITS - 1}; i >= 0; --i) {
+            double sum = mat[i][_LIMITS];
+            for (size_t j {i + 1}; j < n; ++j) {
+                sum -= mat[i][j] * outPoint.x[j];
             }
-            outPoint.coords[i] = sum / mat[i][i];
+            outPoint.x[i] = sum / mat[i][i];
         }
 
         return true;
     }
 
-    double calculateRoot(Point p) {
-        return m_root.A * p.x1 + m_root.B * p.x2;
+    double calculateRoot(const Point& point) {
+        double root{0.0};
+        for (size_t i = 0; i < _VARIABLES; i++)
+            seed = m_seed.x[i] * point.x[i];
+        return root;
     }
 
     void symplex() {
-        for (size_t i = 0; i < m_matrix.size(); ++i) {
-            for (size_t j = i + 1; j < m_matrix.size(); ++j) {
-                Point intersection;
-                if (findIntersection(m_matrix[i], m_matrix[j], intersection)) {
-                    if (checkConstraints(intersection.x1, intersection.x2)) {
+        for (size_t i{0}; i < _LIMITS; ++i) {
+            for (size_t j{i + 1}; j < _LIMITS; ++j) {
+                Point intersection{};
+                if (findIntersection(intersection)) {
+                    if (checkConstraints(intersection)) {
                         m_points.push_back(intersection);
                     }
                 }
@@ -202,25 +214,39 @@ private:
 
 int main() {
     // 30*x1 + 40*x2
-    Seed root {
-        30.0, 40.0
-    };
-
     // 1) 14*x1 + 4*x2 <= 252
     // 2) 4*x1 - 4*x2 <= 120
     // 3) 2*x1 + 12*x2 <= 240
-    Matrix matrix {
-        {14.0, 4.0, 252.0},
-        {4.0, 4.0, 120.0},
-        {2.0, 12.0, 240.0}
+    Matrix matrix ;
+
+    MathSystem symplex{
+        {30, 40},
+        {
+            {14.0, 4.0, 252.0},
+            {4.0, 4.0, 120.0},
+            {2.0, 12.0, 240.0}
+        }
     };
 
-    Simplex simplex(root, matrix);
+    simplex.symplex();
 
     // Вывожу все точки пересечения
     simplex.printAll();
     // Вывожу самую отдалённую точку пересечения
     simplex.printMaxPoint();
+    // Вывожу самую ближнюю точку пересечения
+    // simpson.printMinPoint();
+
+    MathSystem graf{
+        symplex
+    };
+
+    graf.graf();
+
+    // Вывожу все точки пересечения
+    graf.printAll();
+    // Вывожу самую отдалённую точку пересечения
+    graf.printMaxPoint();
     // Вывожу самую ближнюю точку пересечения
     // simpson.printMinPoint();
 
