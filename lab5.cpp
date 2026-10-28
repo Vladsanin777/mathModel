@@ -24,10 +24,9 @@ public:
     struct Limit {
         double x[_VARIABLES + 1] = {0};
         OperatorLimit type;
-        Seed(double _x[_VARIABLES], OperatorLimit _type)
+        Limit(double _x[_VARIABLES], OperatorLimit _type)
                 : x{_x}, type{_type} {}
-        Seed(double _x[_VARIABLES])
-                : x{_x}, type{Less} {}
+        Limit(double _x[_VARIABLES]) : x{_x}, type{Less} {}
     };
 
     struct Seed {
@@ -35,8 +34,7 @@ public:
         OperatorSeed type;
         Seed(double _x[_VARIABLES], OperatorSeed _type)
                 : x{_x}, type{_type} {}
-        Seed(double _x[_VARIABLES])
-                : x{_x}, type{MAX} {}
+        Seed(double _x[_VARIABLES]) : x{_x}, type{Max} {}
     };
 
     using Limits = Limit[_LIMITS];
@@ -56,23 +54,23 @@ private:
             : m_seed{system.m_seed}, m_limits{system.m_limits} {}
 
     void printTargetPoint() {
-        std::cout << "The target point (\n\t"
+        std::cout << "The target point (\n\t";
 
-        for (const double & x : point.x)
-            std::cout << point.x[i] << "; ";
+        for (const double & x : m_targetPoint.x)
+            std::cout << x << "; ";
 
-        std::cout << ")\nL = " << m_maxRoot << std::endl;
+        std::cout << ")\nL = " << m_targetRoot << std::endl;
     }
 
     void printAll() {
         std::cout << "Count points: " << m_points.size() << std::endl;
 
-        for (const auto& point : m_points) {
+        for (const Point& point : m_points) {
             double currentRoot = calculateRoot(point);
             std::cout << "Point (\n\t";
 
             for (const double & x : point.x)
-                std::cout << point.x[i] << "; ";
+                std::cout << x << "; ";
 
             std::cout << ") -> L = " << currentRoot << std::endl;
         }
@@ -80,7 +78,7 @@ private:
 
 private:
     bool checkConstraints(const Point& point) {
-        for (const Limit & limit : m_matrix) {
+        for (const Limit & limit : m_limits) {
             double value{0.0};
             for (size_t i = 0; i < _VARIABLES; i++)
                 value += limit.x[i] * point.x[i];
@@ -103,11 +101,11 @@ private:
     }
 
     static bool findIntersection(Point& outPoint) {
-        if (limits.empty()) return false;
+        if (m_limits.empty()) return false;
         
         double mat[_LIMITS][_LIMITS + 1] {};
         for (size_t i = 0; i < _LIMITS; i++) {
-            if (limits[i].coeff.size() < _LIMITS + 1) return false;
+            if (m_limits[i].x.size() < _LIMITS + 1) return false;
             for (size_t j = 0; j < _LIMITS + 1; j++) {
                 mat[i][j] = limits[i].coeff[j];
             }
@@ -187,7 +185,7 @@ private:
         m_targetPoint = m_points[0];
         m_targetRoot = calculateRoot(m_points[0]);
 
-        for (const auto& point : m_points) {
+        for (const Point& point : m_points) {
             double currentRoot = calculateRoot(point);
             
             if (currentRoot < m_minRoot) {
@@ -201,7 +199,7 @@ private:
         m_targetPoint = m_points[0];
         m_targetRoot = calculateRoot(m_points[0]);
 
-        for (const auto& point : m_points) {
+        for (const Point& point : m_points) {
             double currentRoot = calculateRoot(point);
             
             if (currentRoot > m_maxRoot) {
