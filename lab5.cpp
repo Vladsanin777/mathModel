@@ -10,7 +10,9 @@ template<const size_t _VARIABLES, const size_t _LIMITS>
 class MathSystem {
 public:
     struct Point {
-        double x[_VARIABLES] = {0};
+        double x[_VARIABLES]{};
+
+        Point(double _x) : x{_x} {}
     };
 
     enum OperatorSeed {
@@ -22,7 +24,7 @@ public:
     };
 
     struct Limit {
-        double x[_VARIABLES + 1] = {0};
+        double x[_VARIABLES + 1]{};
         OperatorLimit type;
         Limit(double _x[_VARIABLES], OperatorLimit _type)
                 : x{_x}, type{_type} {}
@@ -30,7 +32,7 @@ public:
     };
 
     struct Seed {
-        double x[_VARIABLES] = {0};
+        double x[_VARIABLES]{};
         OperatorSeed type;
         Seed(double _x[_VARIABLES], OperatorSeed _type)
                 : x{_x}, type{_type} {}
@@ -43,15 +45,20 @@ public:
 private:
     const Seed m_seed;
     const Limits m_limits;
-    Points m_points;
     double m_targetRoot;
     Point m_targetPoint;
     
+public:
     MathSystem(Seed seed, Limits limits)
-            : m_seed{seed}, m_limits{limits} {}
+            : m_seed{seed}, m_limits{limits} { init(); }
 
     MathSystem(const MathSystem& system)
-            : m_seed{system.m_seed}, m_limits{system.m_limits} {}
+            : m_seed{system.m_seed}, m_limits{system.m_limits} { init(); }
+
+    void init(void) {
+        calculate();
+        findPoint();
+    }
 
     void printTargetPoint() {
         std::cout << "The target point (\n\t";
@@ -62,26 +69,21 @@ private:
         std::cout << ")\nL = " << m_targetRoot << std::endl;
     }
 
-    void printAll() {
-        std::cout << "Count points: " << m_points.size() << std::endl;
+    virtual void printInfo(void) = 0;
 
-        for (const Point& point : m_points) {
-            double currentRoot = calculateRoot(point);
-            std::cout << "Point (\n\t";
-
-            for (const double & x : point.x)
-                std::cout << x << "; ";
-
-            std::cout << ") -> L = " << currentRoot << std::endl;
-        }
+protected:
+    const Limits * getLimits(void) const {
+        return m_limits;
     }
 
 private:
-    bool checkConstraints(const Point& point) {
+    bool checkConstraints(const Point& point) const {
         for (const Limit & limit : m_limits) {
             double value{0.0};
+
             for (size_t i = 0; i < _VARIABLES; i++)
                 value += limit.x[i] * point.x[i];
+
             switch (limit.type) {
                 case Less:
                     if (value > limit.x[limit.x.size() - 1] + EPSILON)
@@ -100,75 +102,14 @@ private:
         return true;
     }
 
-    static bool findIntersection(Point& outPoint) {
-        if (m_limits.empty()) return false;
-        
-        double mat[_LIMITS][_LIMITS + 1] {};
-        for (size_t i = 0; i < _LIMITS; i++) {
-            if (m_limits[i].x.size() < _LIMITS + 1) return false;
-            for (size_t j = 0; j < _LIMITS + 1; j++) {
-                mat[i][j] = limits[i].coeff[j];
-            }
-        }
-
-        for (size_t i = 0; i < _LIMITS; i++) {
-            size_t maxRow = i;
-            for (size_t k = i + 1; k < _LIMITS; k++) {
-                if (std::abs(mat[k][i]) > std::abs(mat[maxRow][i])) {
-                    maxRow = k;
-                }
-            }
-            
-            if (maxRow != i) {
-                std::swap(mat[i], mat[maxRow]);
-            }
-
-            if (std::abs(mat[i][i]) < EPSILON) {
-                return false; 
-            }
-
-            for (size_t k = i + 1; k < n; ++k) {
-                double c = -mat[k][i] / mat[i][i];
-                for (size_t j = i; j <= n; ++j) {
-                    if (i == j) {
-                        mat[k][j] = 0;
-                    } else {
-                        mat[k][j] += c * mat[i][j];
-                    }
-                }
-            }
-        }
-
-        for (size_t i {_LIMITS - 1}; i >= 0; --i) {
-            double sum = mat[i][_LIMITS];
-            for (size_t j {i + 1}; j < n; ++j) {
-                sum -= mat[i][j] * outPoint.x[j];
-            }
-            outPoint.x[i] = sum / mat[i][i];
-        }
-
-        return true;
-    }
-
-    double calculateRoot(const Point& point) {
+    double calculateRoot(const Point& point) const {
         double root{0.0};
         for (size_t i = 0; i < _VARIABLES; i++)
-            seed = m_seed.x[i] * point.x[i];
+            root = m_seed.x[i] * point.x[i];
         return root;
     }
 
-    void symplex() {
-        for (size_t i{0}; i < _LIMITS; ++i) {
-            for (size_t j{i + 1}; j < _LIMITS; ++j) {
-                Point intersection{};
-                if (findIntersection(intersection)) {
-                    if (checkConstraints(intersection)) {
-                        m_points.push_back(intersection);
-                    }
-                }
-            }
-        }
-
+    virtual void findPoint(void) {
         switch (m_seed->type) {
             case Min:
                 findMinPoint();
@@ -181,32 +122,122 @@ private:
         }
     }
 
-    void findMinPoint() {
-        m_targetPoint = m_points[0];
-        m_targetRoot = calculateRoot(m_points[0]);
+    virtual void calculate(void) = 0;
+
+    virtual void findMinPoint(void) = 0;
+
+    virtual void findMaxPoint(void) = 0;
+};
+
+template<const size_t _VARIABLES, const size_t _LIMITS>
+class Graphical final : public MathSystem<_VARIABLES, _LIMITS> {
+public:
+    using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
+    using typename MathSystem<_VARIABLES, _LIMITS>::getLimits;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Points;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Point;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Limits;
+
+private:
+    Points m_points;
+
+public:
+    void printInfo(void) override {
+        std::cout << "Count points: " << m_points.size() << std::endl;
 
         for (const Point& point : m_points) {
             double currentRoot = calculateRoot(point);
-            
-            if (currentRoot < m_minRoot) {
-                m_targetRoot = currentRoot;
-                m_targetPoint = point;
-            }
+            std::cout << "Point (\n\t";
+
+            for (const double & x : point.x)
+                std::cout << x << "; ";
+
+            std::cout << ") -> L = " << currentRoot << std::endl;
         }
     }
 
-    void findMaxPoint() {
-        m_targetPoint = m_points[0];
-        m_targetRoot = calculateRoot(m_points[0]);
+private:
+    void calculate(void) override {
+        for (size_t i{0}; i < _LIMITS; ++i)
+            for (size_t j{i + 1}; j < _LIMITS; ++j) {
+                Point intersection{};
+                if (findIntersection(intersection))
+                    if (checkConstraints(intersection))
+                        m_points.push_back(intersection);
+            }
+    }
+
+    bool findIntersection(Point& outPoint) {
+        const Limits * const limits{getLimits()};
+        
+        double mat[_LIMITS][_LIMITS + 1] {};
+        for (size_t i = 0; i < _LIMITS; i++) {
+            if (_VARIABLES + 1 < _LIMITS + 1) return false;
+            for (size_t j = 0; j < _LIMITS + 1; j++)
+                mat[i][j] = limits[i].x[j];
+        }
+
+        for (size_t i = 0; i < _LIMITS; i++) {
+            size_t maxRow = i;
+            for (size_t k = i + 1; k < _LIMITS; k++)
+                if (std::abs(mat[k][i]) > std::abs(mat[maxRow][i]))
+                    maxRow = k;
+            
+            if (maxRow != i) std::swap(mat[i], mat[maxRow]);
+
+            if (std::abs(mat[i][i]) < EPSILON) return false; 
+
+            for (size_t k = i + 1; k < _LIMITS; ++k) {
+                double c = -mat[k][i] / mat[i][i];
+                for (size_t j = i; j <= _LIMITS; ++j) {
+                    if (i == j) mat[k][j] = 0;
+                    else mat[k][j] += c * mat[i][j];
+                }
+            }
+        }
+
+        for (size_t i {_LIMITS - 1}; i >= 0; i--) {
+            double sum = mat[i][_LIMITS];
+            for (size_t j {i + 1}; j < _LIMITS; ++j)
+                sum -= mat[i][j] * outPoint.x[j];
+            outPoint.x[i] = sum / mat[i][i];
+        }
+
+        return true;
+    }
+
+    void findMinPoint() override {
+        double targetPoint{m_points[0].x};
+        double targetRoot{calculateRoot(targetPoint)};
 
         for (const Point& point : m_points) {
-            double currentRoot = calculateRoot(point);
+            double currentRoot{calculateRoot(point)};
+            
+            if (currentRoot < m_minRoot) {
+                targetRoot = currentRoot;
+                targetPoint = point;
+            }
+        }
+
+        setTargetPoint(targetPoint);
+        setTargetRoot(targetRoot);
+    }
+
+    void findMaxPoint() override {
+        double targetPoint{m_points[0]};
+        double targetRoot{calculateRoot(targetRoot)};
+
+        for (const Point& point : m_points) {
+            double currentRoot{calculateRoot(point)};
             
             if (currentRoot > m_maxRoot) {
                 m_targetRoot = currentRoot;
                 m_targetPoint = point;
             }
         }
+
+        setTargetPoint(targetPoint);
+        setTargetRoot(targetRoot);
     }
 };
 
@@ -215,9 +246,7 @@ int main() {
     // 1) 14*x1 + 4*x2 <= 252
     // 2) 4*x1 - 4*x2 <= 120
     // 3) 2*x1 + 12*x2 <= 240
-    Matrix matrix ;
-
-    MathSystem symplex{
+    Symplex symplex{
         {30, 40},
         {
             {14.0, 4.0, 252.0},
@@ -226,27 +255,17 @@ int main() {
         }
     };
 
-    simplex.symplex();
+    simplex.print();
 
-    // Вывожу все точки пересечения
-    simplex.printAll();
-    // Вывожу самую отдалённую точку пересечения
-    simplex.printMaxPoint();
-    // Вывожу самую ближнюю точку пересечения
-    // simpson.printMinPoint();
+    simplex.printInfo();
 
-    MathSystem graf{
+    Graphical graphical{
         symplex
     };
 
-    graf.graf();
+    graphical.print();
 
-    // Вывожу все точки пересечения
-    graf.printAll();
-    // Вывожу самую отдалённую точку пересечения
-    graf.printMaxPoint();
-    // Вывожу самую ближнюю точку пересечения
-    // simpson.printMinPoint();
+    graphical.printInfo();
 
     return 0;
 }
