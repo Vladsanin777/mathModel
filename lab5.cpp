@@ -130,9 +130,25 @@ private:
 };
 
 template<const size_t _VARIABLES, const size_t _LIMITS>
+class Symplex final : public MathSystem<_VARIABLES, _LIMITS> {
+public:
+    using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
+    using MathSystem<_VARIABLES, _LIMITS>::calculateRoot;
+    using MathSystem<_VARIABLES, _LIMITS>::setTargetRoot;
+    using MathSystem<_VARIABLES, _LIMITS>::setTargetPoint;
+    using typename MathSystem<_VARIABLES, _LIMITS>::getLimits;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Points;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Point;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Limits;
+};
+
+template<const size_t _VARIABLES, const size_t _LIMITS>
 class Graphical final : public MathSystem<_VARIABLES, _LIMITS> {
 public:
     using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
+    using MathSystem<_VARIABLES, _LIMITS>::calculateRoot;
+    using MathSystem<_VARIABLES, _LIMITS>::setTargetRoot;
+    using MathSystem<_VARIABLES, _LIMITS>::setTargetPoint;
     using typename MathSystem<_VARIABLES, _LIMITS>::getLimits;
     using typename MathSystem<_VARIABLES, _LIMITS>::Points;
     using typename MathSystem<_VARIABLES, _LIMITS>::Point;
@@ -213,7 +229,7 @@ private:
         for (const Point& point : m_points) {
             double currentRoot{calculateRoot(point)};
             
-            if (currentRoot < m_minRoot) {
+            if (currentRoot < targetRoot) {
                 targetRoot = currentRoot;
                 targetPoint = point;
             }
@@ -230,9 +246,9 @@ private:
         for (const Point& point : m_points) {
             double currentRoot{calculateRoot(point)};
             
-            if (currentRoot > m_maxRoot) {
-                m_targetRoot = currentRoot;
-                m_targetPoint = point;
+            if (currentRoot > targetRoot) {
+                targetRoot = currentRoot;
+                targetPoint = point;
             }
         }
 
@@ -246,12 +262,12 @@ int main() {
     // 1) 14*x1 + 4*x2 <= 252
     // 2) 4*x1 - 4*x2 <= 120
     // 3) 2*x1 + 12*x2 <= 240
-    Symplex symplex{
-        {30, 40},
+    Symplex<2, 3> symplex {
+        {{30, 40}},
         {
-            {14.0, 4.0, 252.0},
-            {4.0, 4.0, 120.0},
-            {2.0, 12.0, 240.0}
+            {{14.0, 4.0, 252.0}},
+            {{4.0, 4.0, 120.0}},
+            {{2.0, 12.0, 240.0}}
         }
     };
 
@@ -259,7 +275,7 @@ int main() {
 
     simplex.printInfo();
 
-    Graphical graphical{
+    Graphical<2, 3> graphical {
         symplex
     };
 
