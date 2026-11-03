@@ -6,15 +6,9 @@
 
 #define EPSILON 0.00001
 
-template<const size_t _VARIABLES, const size_t _LIMITS>
+template <const size_t _VARIABLES, const size_t _LIMITS>
 class MathSystem {
 public:
-    struct Point {
-        double x[_VARIABLES]{};
-
-        Point(double _x) : x{_x} {}
-    };
-
     enum OperatorSeed {
         Min, Max
     };
@@ -40,13 +34,11 @@ public:
     };
 
     using Limits = Limit[_LIMITS];
-    using Points = Point[_LIMITS - 1];
 
 private:
     const Seed m_seed;
     const Limits m_limits;
-    double m_targetRoot;
-    Point m_targetPoint;
+    double m_result;
     
 public:
     MathSystem(Seed seed, Limits limits)
@@ -57,104 +49,67 @@ public:
 
     void init(void) {
         calculate();
-        findPoint();
     }
 
-    void printTargetPoint() {
-        std::cout << "The target point (\n\t";
+    virtual void printResult(void) const = 0;
 
-        for (const double & x : m_targetPoint.x)
-            std::cout << x << "; ";
+    virtual void printInfo(void) const = 0;
 
-        std::cout << ")\nL = " << m_targetRoot << std::endl;
+    OperatorSeed getType(void) const {
+        return m_seed->type();
     }
 
-    virtual void printInfo(void) = 0;
+    double getResult(void) const {
+        return m_result;
+    }
 
 protected:
+    const Seed * getSeed(void) const {
+        return m_seed;
+    }
+
     const Limits * getLimits(void) const {
         return m_limits;
     }
 
+    void setResult(double result) {
+        m_result = result;
+    }
+
 private:
-    bool checkConstraints(const Point& point) const {
-        for (const Limit & limit : m_limits) {
-            double value{0.0};
-
-            for (size_t i = 0; i < _VARIABLES; i++)
-                value += limit.x[i] * point.x[i];
-
-            switch (limit.type) {
-                case Less:
-                    if (value > limit.x[limit.x.size() - 1] + EPSILON)
-                        return false;
-                    break;
-                case More:
-                    if (value < limit.x[limit.x.size() - 1] - EPSILON)
-                        return false;
-                    break;
-                case Equal:
-                    if (abs(value - limit.x[limit.x.size() - 1]) > EPSILON)
-                        return false;
-                    break;
-            }
-        }
-        return true;
-    }
-
-    double calculateRoot(const Point& point) const {
-        double root{0.0};
-        for (size_t i = 0; i < _VARIABLES; i++)
-            root = m_seed.x[i] * point.x[i];
-        return root;
-    }
-
-    virtual void findPoint(void) {
-        switch (m_seed->type) {
-            case Min:
-                findMinPoint();
-                break;
-            case Max:
-                findMaxPoint();
-                break;
-            default:
-                break;
-        }
-    }
-
     virtual void calculate(void) = 0;
-
-    virtual void findMinPoint(void) = 0;
-
-    virtual void findMaxPoint(void) = 0;
 };
 
 template<const size_t _VARIABLES, const size_t _LIMITS>
 class Symplex final : public MathSystem<_VARIABLES, _LIMITS> {
 public:
     using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
-    using MathSystem<_VARIABLES, _LIMITS>::calculateRoot;
-    using MathSystem<_VARIABLES, _LIMITS>::setTargetRoot;
-    using MathSystem<_VARIABLES, _LIMITS>::setTargetPoint;
-    using typename MathSystem<_VARIABLES, _LIMITS>::getLimits;
-    using typename MathSystem<_VARIABLES, _LIMITS>::Points;
-    using typename MathSystem<_VARIABLES, _LIMITS>::Point;
-    using typename MathSystem<_VARIABLES, _LIMITS>::Limits;
 };
 
 template<const size_t _VARIABLES, const size_t _LIMITS>
 class Graphical final : public MathSystem<_VARIABLES, _LIMITS> {
 public:
+    struct Point {
+        double x[_VARIABLES]{};
+
+        Point(double _x) : x{_x} {}
+    };
+
+    using Points = Point[_LIMITS - 1];
     using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
-    using MathSystem<_VARIABLES, _LIMITS>::calculateRoot;
-    using MathSystem<_VARIABLES, _LIMITS>::setTargetRoot;
-    using MathSystem<_VARIABLES, _LIMITS>::setTargetPoint;
-    using typename MathSystem<_VARIABLES, _LIMITS>::getLimits;
-    using typename MathSystem<_VARIABLES, _LIMITS>::Points;
-    using typename MathSystem<_VARIABLES, _LIMITS>::Point;
+    using MathSystem<_VARIABLES, _LIMITS>::getResult;
+    using MathSystem<_VARIABLES, _LIMITS>::setResult;
+    using MathSystem<_VARIABLES, _LIMITS>::getLimits;
+    using MathSystem<_VARIABLES, _LIMITS>::getType;
+    using MathSystem<_VARIABLES, _LIMITS>::getSeed;
+    using typename MathSystem<_VARIABLES, _LIMITS>::OperatorSeed;
+    using typename MathSystem<_VARIABLES, _LIMITS>::OperatorLimit;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Seed;
+    using typename MathSystem<_VARIABLES, _LIMITS>::Limit;
     using typename MathSystem<_VARIABLES, _LIMITS>::Limits;
 
 private:
+    Point m_targetPoint;
     Points m_points;
 
 public:
@@ -162,7 +117,7 @@ public:
         std::cout << "Count points: " << m_points.size() << std::endl;
 
         for (const Point& point : m_points) {
-            double currentRoot = calculateRoot(point);
+            double currentRoot{calculateRoot(point)};
             std::cout << "Point (\n\t";
 
             for (const double & x : point.x)
@@ -172,7 +127,15 @@ public:
         }
     }
 
+    Point getTargetPoint(void) {
+        return m_targetPoint;
+    }
+
 private:
+    void setTargetPoint(Point point) {
+        m_targetPoint = point;
+    }
+
     void calculate(void) override {
         for (size_t i{0}; i < _LIMITS; ++i)
             for (size_t j{i + 1}; j < _LIMITS; ++j) {
@@ -181,6 +144,17 @@ private:
                     if (checkConstraints(intersection))
                         m_points.push_back(intersection);
             }
+
+        findPoint();
+    }
+
+    double calculateRoot(const Point& point) {
+        double root{0.0};
+
+        const Seed * const seed {getSeed()};
+        for (size_t i = 0; i < _VARIABLES; i++)
+            root += seed.x[i] * point.x[i];
+        return root;
     }
 
     bool findIntersection(Point& outPoint) {
@@ -222,6 +196,42 @@ private:
         return true;
     }
 
+    bool checkConstraints(const Point& point) const {
+        for (const Limit & limit : getLimits()) {
+            double value{0.0};
+
+            for (size_t i = 0; i < _VARIABLES; i++)
+                value += limit.x[i] * point.x[i];
+
+            switch (limit.type) {
+                case OperatorLimit::Less:
+                    if (value > limit.x[limit.x.size() - 1] + EPSILON)
+                        return false;
+                    break;
+                case OperatorLimit::More:
+                    if (value < limit.x[limit.x.size() - 1] - EPSILON)
+                        return false;
+                    break;
+                case OperatorLimit::Equal:
+                    if (abs(value - limit.x[limit.x.size() - 1]) > EPSILON)
+                        return false;
+                    break;
+            }
+        }
+        return true;
+    }
+
+    virtual void findPoint(void) {
+        switch (getType()) {
+            case OperatorSeed::Min:
+                findMinPoint();
+                break;
+            case OperatorSeed::Max:
+                findMaxPoint();
+                break;
+        }
+    }
+
     void findMinPoint() override {
         double targetPoint{m_points[0].x};
         double targetRoot{calculateRoot(targetPoint)};
@@ -236,7 +246,7 @@ private:
         }
 
         setTargetPoint(targetPoint);
-        setTargetRoot(targetRoot);
+        setResult(targetRoot);
     }
 
     void findMaxPoint() override {
@@ -253,7 +263,7 @@ private:
         }
 
         setTargetPoint(targetPoint);
-        setTargetRoot(targetRoot);
+        setResult(targetRoot);
     }
 };
 
@@ -263,11 +273,11 @@ int main() {
     // 2) 4*x1 - 4*x2 <= 120
     // 3) 2*x1 + 12*x2 <= 240
     Symplex<2, 3> symplex {
-        {{30, 40}},
+        {30, 40},
         {
-            {{14.0, 4.0, 252.0}},
-            {{4.0, 4.0, 120.0}},
-            {{2.0, 12.0, 240.0}}
+            {14.0, 4.0, 252.0},
+            {4.0, 4.0, 120.0},
+            {2.0, 12.0, 240.0}
         }
     };
 
