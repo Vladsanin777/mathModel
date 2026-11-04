@@ -2,6 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <array>
 #include <iomanip>
 
 #define EPSILON 0.00001
@@ -18,60 +19,67 @@ public:
     };
 
     struct Limit {
-        double x[_VARIABLES + 1]{};
+        std::array<double, _VARIABLES + 1> x;
         OperatorLimit type;
-        Limit(double _x[_VARIABLES], OperatorLimit _type)
-                : x{_x}, type{_type} {}
-        Limit(double _x[_VARIABLES]) : x{_x}, type{Less} {}
+        Limit(std::array<double, _VARIABLES + 1> _x,
+                OperatorLimit _type) : x{_x}, type{_type} {}
+        Limit(std::array<double, _VARIABLES + 1> _x)
+            : x{_x}, type{Less} {}
+
+        Limit() = default;
     };
 
     struct Seed {
-        double x[_VARIABLES]{};
+        std::array<double, _VARIABLES> x;
         OperatorSeed type;
-        Seed(double _x[_VARIABLES], OperatorSeed _type)
-                : x{_x}, type{_type} {}
-        Seed(double _x[_VARIABLES]) : x{_x}, type{Max} {}
+        Seed(std::array<double, _VARIABLES> _x,
+                OperatorSeed _type) : x{_x}, type{_type} {}
+        Seed(std::array<double, _VARIABLES> _x) : x{_x}, type{Max} {}
+
+        Seed() = default;
     };
 
-    using Limits = Limit[_LIMITS];
+    using Limits = std::array<Limit, _LIMITS>;
 
 private:
-    const Seed m_seed;
-    const Limits m_limits;
+    const MathSystem<_VARIABLES, _LIMITS>::Seed m_seed;
+    const MathSystem<_VARIABLES, _LIMITS>::Limits m_limits;
     double m_result;
     
 public:
     MathSystem(Seed seed, Limits limits)
             : m_seed{seed}, m_limits{limits} { init(); }
 
-    MathSystem(const MathSystem& system)
+    MathSystem(const MathSystem<_VARIABLES, _LIMITS>& system)
             : m_seed{system.m_seed}, m_limits{system.m_limits} { init(); }
 
     void init(void) {
         calculate();
     }
 
-    virtual void printResult(void) const = 0;
+    void printResult(void) const {
+
+    }
 
     virtual void printInfo(void) const = 0;
 
     OperatorSeed getType(void) const {
-        return m_seed->type();
+        return m_seed.type;
     }
 
     double getResult(void) const {
         return m_result;
     }
 
-protected:
     const Seed * getSeed(void) const {
-        return m_seed;
+        return &m_seed;
     }
 
-    const Limits * getLimits(void) const {
+    const Limits getLimits(void) const {
         return m_limits;
     }
 
+protected:
     void setResult(double result) {
         m_result = result;
     }
@@ -84,19 +92,35 @@ template<const size_t _VARIABLES, const size_t _LIMITS>
 class Symplex final : public MathSystem<_VARIABLES, _LIMITS> {
 public:
     using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
+    using MathSystem<_VARIABLES, _LIMITS>::printResult;
+
+    Symplex(const MathSystem<_VARIABLES, _LIMITS> & system) :
+        MathSystem<_VARIABLES, _LIMITS>{system} {}
+
+    void printInfo(void) const override {
+
+    }
+
+private:
+    void calculate(void) override {
+
+    }
 };
 
 template<const size_t _VARIABLES, const size_t _LIMITS>
 class Graphical final : public MathSystem<_VARIABLES, _LIMITS> {
 public:
     struct Point {
-        double x[_VARIABLES]{};
+        std::array<double, _VARIABLES> x;
 
-        Point(double _x) : x{_x} {}
+        Point(std::array<double, _VARIABLES> _x) : x{_x} {}
+
+        Point() = default;
     };
 
-    using Points = Point[_LIMITS - 1];
+    using Points = std::vector<Point>;
     using MathSystem<_VARIABLES, _LIMITS>::MathSystem;
+    using MathSystem<_VARIABLES, _LIMITS>::printResult;
     using MathSystem<_VARIABLES, _LIMITS>::getResult;
     using MathSystem<_VARIABLES, _LIMITS>::setResult;
     using MathSystem<_VARIABLES, _LIMITS>::getLimits;
@@ -113,7 +137,10 @@ private:
     Points m_points;
 
 public:
-    void printInfo(void) override {
+    Graphical(const MathSystem<_VARIABLES, _LIMITS> & system) :
+        MathSystem<_VARIABLES, _LIMITS>{system} {}
+
+    void printInfo(void) const override {
         std::cout << "Count points: " << m_points.size() << std::endl;
 
         for (const Point& point : m_points) {
@@ -148,17 +175,17 @@ private:
         findPoint();
     }
 
-    double calculateRoot(const Point& point) {
+    double calculateRoot(const Point & point) const {
         double root{0.0};
 
         const Seed * const seed {getSeed()};
         for (size_t i = 0; i < _VARIABLES; i++)
-            root += seed.x[i] * point.x[i];
+            root += getSeed()->x[i] * point.x[i];
         return root;
     }
 
-    bool findIntersection(Point& outPoint) {
-        const Limits * const limits{getLimits()};
+    bool findIntersection(Point & outPoint) {
+        const Limits limits{getLimits()};
         
         double mat[_LIMITS][_LIMITS + 1] {};
         for (size_t i = 0; i < _LIMITS; i++) {
@@ -196,7 +223,7 @@ private:
         return true;
     }
 
-    bool checkConstraints(const Point& point) const {
+    bool checkConstraints(const Point & point) const {
         for (const Limit & limit : getLimits()) {
             double value{0.0};
 
@@ -221,7 +248,7 @@ private:
         return true;
     }
 
-    virtual void findPoint(void) {
+    void findPoint(void) {
         switch (getType()) {
             case OperatorSeed::Min:
                 findMinPoint();
@@ -232,8 +259,8 @@ private:
         }
     }
 
-    void findMinPoint() override {
-        double targetPoint{m_points[0].x};
+    void findMinPoint() {
+        Point targetPoint{m_points[0]};
         double targetRoot{calculateRoot(targetPoint)};
 
         for (const Point& point : m_points) {
@@ -249,9 +276,9 @@ private:
         setResult(targetRoot);
     }
 
-    void findMaxPoint() override {
-        double targetPoint{m_points[0]};
-        double targetRoot{calculateRoot(targetRoot)};
+    void findMaxPoint() {
+        Point targetPoint{m_points[0]};
+        double targetRoot{calculateRoot(targetPoint)};
 
         for (const Point& point : m_points) {
             double currentRoot{calculateRoot(point)};
@@ -273,23 +300,23 @@ int main() {
     // 2) 4*x1 - 4*x2 <= 120
     // 3) 2*x1 + 12*x2 <= 240
     Symplex<2, 3> symplex {
-        {30, 40},
+        Symplex<2, 3>::Seed {{30, 40}},
         {
-            {14.0, 4.0, 252.0},
-            {4.0, 4.0, 120.0},
-            {2.0, 12.0, 240.0}
+            Symplex<2, 3>::Limit {{14.0, 4.0, 252.0}},
+            Symplex<2, 3>::Limit {{4.0, 4.0, 120.0}},
+            Symplex<2, 3>::Limit {{2.0, 12.0, 240.0}}
         }
     };
 
-    simplex.print();
+    symplex.printResult();
 
-    simplex.printInfo();
+    symplex.printInfo();
 
     Graphical<2, 3> graphical {
         symplex
     };
 
-    graphical.print();
+    graphical.printResult();
 
     graphical.printInfo();
 
