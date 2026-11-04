@@ -48,17 +48,13 @@ private:
     
 public:
     MathSystem(Seed seed, Limits limits)
-            : m_seed{seed}, m_limits{limits} { init(); }
+            : m_seed{seed}, m_limits{limits} {}
 
     MathSystem(const MathSystem<_VARIABLES, _LIMITS>& system)
-            : m_seed{system.m_seed}, m_limits{system.m_limits} { init(); }
-
-    void init(void) {
-        calculate();
-    }
+            : m_seed{system.m_seed}, m_limits{system.m_limits} {}
 
     void printResult(void) const {
-
+        std::cout << getResult() << std::endl;
     }
 
     virtual void printInfo(void) const = 0;
@@ -79,13 +75,12 @@ public:
         return m_limits;
     }
 
+    virtual void calculate(void) = 0;
+
 protected:
     void setResult(double result) {
         m_result = result;
     }
-
-private:
-    virtual void calculate(void) = 0;
 };
 
 template<const size_t _VARIABLES, const size_t _LIMITS>
@@ -101,7 +96,6 @@ public:
 
     }
 
-private:
     void calculate(void) override {
 
     }
@@ -158,11 +152,6 @@ public:
         return m_targetPoint;
     }
 
-private:
-    void setTargetPoint(Point point) {
-        m_targetPoint = point;
-    }
-
     void calculate(void) override {
         for (size_t i{0}; i < _LIMITS; ++i)
             for (size_t j{i + 1}; j < _LIMITS; ++j) {
@@ -173,6 +162,11 @@ private:
             }
 
         findPoint();
+    }
+
+private:
+    void setTargetPoint(Point point) {
+        m_targetPoint = point;
     }
 
     double calculateRoot(const Point & point) const {
@@ -308,6 +302,8 @@ int main() {
         }
     };
 
+    symplex.calculate();
+
     symplex.printResult();
 
     symplex.printInfo();
@@ -315,6 +311,8 @@ int main() {
     Graphical<2, 3> graphical {
         symplex
     };
+
+    graphical.calculate();
 
     graphical.printResult();
 
