@@ -388,14 +388,26 @@ public:
     using System<_VARIABLES, _LIMITS>::getSeed;
     using typename System<_VARIABLES, _LIMITS>::OperatorSeed;
     using typename System<_VARIABLES, _LIMITS>::OperatorLimit;
+    using typename System<_VARIABLES, _LIMITS>::Point;
     using typename System<_VARIABLES, _LIMITS>::Seed;
     using typename System<_VARIABLES, _LIMITS>::Limit;
     using typename System<_VARIABLES, _LIMITS>::Limits;
-    using Table = std::array<std::array<double, _VARIABLES + _LIMITS + 1>, _LIMITS + 1>;
-    using Basis = std::array<double, _LIMITS>;
 
 private:
-    std::array<double, _VARIABLES> m_optimalPoint{};
+    using Table = std::array<std::vector<double>, _LIMITS + 1>;
+    using Basis = std::array<size_t, _LIMITS>;
+    using BasisNames = std::vector<std::string>;
+    struct Iteration {
+        Table table;
+        Basis basis;
+        BasisNames basisName;
+    }
+    using Iterations = std::vector<Iteration>;
+
+    Iterations m_iterations;
+    size_t m_totalCols{0};
+    size_t m_totalVars{0};
+    Point m_optimalPoint{};
     bool m_isOptimalFound{false};
     
     Table m_table;
@@ -410,6 +422,8 @@ public:
             std::cout << "Optimal solution not found (infeasible or unbounded)." << std::endl;
             return;
         }
+
+        std::cout << "Symplex method:" << std::endl;
 
         std::cout << "=== Final Simplex Table ===" << std::endl;
         size_t totalCols = m_table.empty() ? 0 : _LIMITS + _VARIABLES + 1;
@@ -562,6 +576,13 @@ using Seed = System<_VARIABLES, _LIMITS>::Seed;
 template <const size_t _VARIABLES, const size_t _LIMITS>
 using Limit = System<_VARIABLES, _LIMITS>::Limit;
 
+template <const size_t _VARIABLES, const size_t _LIMITS>
+void calculate(System<_VARIABLES, _LIMITS> & system) {
+    system.calculate();
+    system.printResult();
+    system.printInfo();
+}
+
 int main(void) {
     // 30*x1 + 40*x2
     // 1) 14*x1 + 4*x2 <= 252
@@ -576,31 +597,15 @@ int main(void) {
         }
     };
 
-    algebraic.calculate();
+    calculate(algebraic);
 
-    algebraic.printResult();
+    Symplex<2, 3> symplex{algebraic};
 
-    algebraic.printInfo();
+    calculate(symplex);
 
-    Symplex<2, 3> symplex {
-        algebraic
-    };
+    Graphical<2, 3> graphical{symplex};
 
-    symplex.calculate();
+    calculate(graphical);
 
-    symplex.printResult();
-
-    symplex.printInfo();
-
-    Graphical<2, 3> graphical {
-        symplex
-    };
-
-    graphical.calculate();
-
-    graphical.printResult();
-
-    graphical.printInfo();
-    
     return 0;
 }
