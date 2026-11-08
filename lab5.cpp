@@ -394,9 +394,11 @@ public:
     using typename System<_VARIABLES, _LIMITS>::Limits;
 
 private:
-    using Table = std::array<std::vector<double>, _LIMITS + 1>;
+    using Table = std::array<std::array<double,
+          _VARIABLES + _LIMITS + _LIMITS + 1>, _LIMITS + 1>;
     using Basis = std::array<size_t, _LIMITS>;
-    using Name = std::vector<std::string>;
+    using Name = std::array<std::string,
+          _VARIABLES + _LIMITS + _LIMITS + 1>;
 
     struct Iteration {
         Table table;
@@ -540,45 +542,74 @@ private:
         m_totalVars = cols - 1;
     }
 
+    void clearIterations(void) {
+        m_iterations.clear();
+    }
+
+    void newIteration(void) {
+        if (m_iterations.size())
+            m_iterations.push_back(m_iterations.back());
+        else m_iterations.push_back(Iteration{});
+    }
+
+    void printIteration(size_t iterationNum) const {
+        std::cout << "Iteration: " << iterationNum + 1 << std::endl;
+
+        const Iteration & iter{m_iterations[iterationNum]};
+        
+        size_t activeCols{0};
+
+        for (const std::string & name : iter.name) {
+            if (!name.empty()) activeCols++;
+            else break;
+        }
+
+        std::cout << "Basis\t|";
+
+        for (size_t i{0}; i < activeCols; i++)
+            std::cout << '\t' << iter.name[i] << " |";
+
+        std::cout << "Constant term" << std::endl;
+        std::cout << std::string(8 + 12 * (activeCols + 1), '-') << std::endl;
+
+        for (size_t i{0}; i < _LIMITS; i++) {
+            std::cout << '\t' << iter.name[iter.basis[i]] << " |";
+
+            for (size_t j{0}; j < activeCols; j++)
+                std::cout << '\t' << iter.table[i][j] << " |";
+
+            std::cout << '\t' << iter.table[i][activeCols] << " |";
+            std::cout << std::endl;
+        }
+
+        std::cout << std::string(8 + 12 * (activeCols + 1), '-') << std::endl;
+        std::cout << "Marks\t|";
+
+        for (size_t i{0}; i < activeCols; i++)
+            std::cout << '\t' << iter.table[_LIMITS][i] << " |";
+
+        std::cout << '\t' << iter.table[_LIMITS][activeCols] << " |";
+        std::cout << std::endl;
+    }
+
 public:
     Symplex(const System<_VARIABLES, _LIMITS> & system) :
         System<_VARIABLES, _LIMITS>{system} {}
 
     void printInfo(void) const override {
-        if (!m_isOptimalFound) {
-            std::cout << "Optimal solution not found (infeasible or unbounded)." << std::endl;
-            return;
+        std::cout << "Simplex method:" << std::endl;
+        std::cout << "History iterations:" << std::endl;
+
+        std::cout << std::endl;
+
+        for (size_t i = 0; i < m_iterations.size(); ++i) {
+            printIteration(i);
+            std::cout << std::endl << std::endl;
         }
 
-        std::cout << "Symplex method:" << std::endl;
-
-        std::cout << "=== Final Simplex Table ===" << std::endl;
-        size_t totalCols = m_iterations[0].table.empty() ? 0 : _LIMITS + _VARIABLES + 1;
-
-        std::cout << "Basis\t";
-        for (size_t j = 0; j < totalCols - 1; ++j) {
-            std::cout << "x" << j + 1 << "\t";
-        }
-        std::cout << "| b" << std::endl;
-        std::cout << "--------------------------------------------------" << std::endl;
-
-        for (size_t i = 0; i < _LIMITS; ++i) {
-            std::cout << "x" << getBasisVal(i) + 1 << "\t";
-            for (size_t j = 0; j < totalCols; ++j) {
-                std::cout << getTableVal(i, j) << "\t";
-            }
-            std::cout << std::endl;
-        }
-
-        std::cout << "Delta\t";
-        for (size_t j = 0; j < totalCols; ++j) {
-            std::cout << getTableVal(_LIMITS, j) << "\t";
-        }
-        std::cout << "\n==================================================" << std::endl;
-
-        std::cout << "Optimal Point (\n\t";
-        for (size_t i{0}; i < _VARIABLES; ++i) {
-            std::cout << m_optimalPoint[i] << "; ";
+        std::cout << "Optimal point (\n\t";
+        for (size_t i = 0; i < _VARIABLES; ++i) {
+            std::cout << "x" << i + 1 << " = " << m_optimalPoint[i] << "; ";
         }
         std::cout << "\n) -> L = " << getResult() << std::endl;
     }
@@ -602,6 +633,9 @@ public:
     }
 
     void calculate(void) override {
+        clearIterations();
+        newIteration();
+
         const Limits limits{getLimits()};
         const Point seed{getSeed()};
         const OperatorSeed type{getType()};
@@ -708,6 +742,8 @@ public:
 
             if (pivotRow == (size_t)-1) return;
 
+            newIteration();
+
             setBasisVal(pivotRow, pivotCol);
 
             const double pivotVal{getTableVal(pivotRow, pivotCol)};
@@ -733,6 +769,8 @@ public:
                 m_optimalPoint[bVar] = getTableVal(i, getTotalVars());
             }
         }
+
+        m_isOptimalFound = true;
 
         double result{0.0};
 
