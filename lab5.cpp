@@ -5,6 +5,7 @@
 #include <vector>
 #include <iomanip>
 #include <bitset>
+#include <limits>
 
 #define EPSILON 0.00001
 
@@ -23,15 +24,15 @@ bool findAndSwapPivot(
         MatrixExtended<_T, Rows> & matrix,
         const size_t currentRow) {
     size_t pivotRow = currentRow;
-    _T maxElement = std::abs(matrix[currentRow][currentRow]);
+    _T maxVal = std::abs(matrix[currentRow][currentRow]);
 
     for (size_t i = currentRow + 1; i < Rows; i++)
-        if (std::abs(matrix[i][currentRow]) > maxElement) {
-            maxElement = std::abs(matrix[i][currentRow]);
+        if (std::abs(matrix[i][currentRow]) > maxVal) {
+            maxVal = std::abs(matrix[i][currentRow]);
             pivotRow = i;
         }
 
-    if (maxElement < EPSILON) return false;
+    if (maxVal < EPSILON) return false;
 
     if (pivotRow != currentRow)
         std::swap(matrix[currentRow], matrix[pivotRow]);
@@ -388,7 +389,6 @@ public:
     using System<_VARIABLES, _LIMITS>::getSeed;
     using typename System<_VARIABLES, _LIMITS>::OperatorSeed;
     using typename System<_VARIABLES, _LIMITS>::OperatorLimit;
-    using typename System<_VARIABLES, _LIMITS>::Point;
     using typename System<_VARIABLES, _LIMITS>::Seed;
     using typename System<_VARIABLES, _LIMITS>::Limit;
     using typename System<_VARIABLES, _LIMITS>::Limits;
@@ -396,22 +396,149 @@ public:
 private:
     using Table = std::array<std::vector<double>, _LIMITS + 1>;
     using Basis = std::array<size_t, _LIMITS>;
-    using BasisNames = std::vector<std::string>;
+    using Name = std::vector<std::string>;
+
     struct Iteration {
         Table table;
         Basis basis;
-        BasisNames basisName;
-    }
+        Name name;
+    };
+
     using Iterations = std::vector<Iteration>;
 
     Iterations m_iterations;
-    size_t m_totalCols{0};
-    size_t m_totalVars{0};
-    Point m_optimalPoint{};
+    size_t m_totalVars{_VARIABLES + _LIMITS + _LIMITS + 1};
+    Point m_optimalPoint;
     bool m_isOptimalFound{false};
     
-    Table m_table;
-    Basis m_basis;
+    size_t getTotalVars(void) const {
+        return m_totalVars;
+    }
+
+    size_t getTotalCols(void) const {
+        return m_totalVars + 1;
+    }
+
+    void setName(const size_t iteration, const Name name) {
+        m_iterations[iteration].name = name;
+    }
+
+    void setNameVal(const size_t i, const std::string newValue) {
+        m_iterations[m_iterations.size() - 1].name[i] = newValue;
+    }
+
+    void setNameVal(const size_t iteration, const size_t i,
+            const std::string newValue) {
+        m_iterations[iteration].name[i] = newValue;
+    }
+
+    void setBasis(const size_t iteration, const Basis basis) {
+        m_iterations[iteration].basis = basis;
+    }
+
+    void setBasisVal(const size_t i, const size_t newValue) {
+        m_iterations[m_iterations.size() - 1].basis[i] = newValue;
+    }
+
+    void setBasisVal(const size_t iteration, const size_t i,
+            const size_t newValue) {
+        m_iterations[iteration].basis[i] = newValue;
+    }
+
+    void setTable(const size_t iteration, const Table table) {
+        m_iterations[iteration].table = table;
+    }
+
+    void setTableVal(const size_t i, const size_t j,
+            const double newValue) {
+        m_iterations[m_iterations.size() - 1].table[i][j] = newValue;
+    }
+
+    void setTableVal(const size_t iteration, const size_t i,
+            const size_t j, const double newValue) {
+        m_iterations[iteration].table[i][j] = newValue;
+    }
+
+    Name getName(const size_t iteration) const {
+        return m_iterations[iteration].name;
+    }
+
+    Name getName(void) const {
+        return m_iterations[m_iterations.size() - 1].name;
+    }
+
+    Name getNamePreview(void) const {
+        return m_iterations[m_iterations.size() - 2].name;
+    }
+
+    std::string getNameValPreview(const size_t i) const {
+        return m_iterations[m_iterations.size() - 2].name[i];
+    }
+
+    std::string getNameVal(const size_t i) const {
+        return m_iterations[m_iterations.size() - 1].name[i];
+    }
+
+    std::string getNameVal(const size_t iteration, const size_t i) const {
+        return m_iterations[iteration].name[i];
+    }
+
+    Basis getBasis(const size_t iteration) const {
+        return m_iterations[iteration].basis;
+    }
+
+    Basis getBasis(void) const {
+        return m_iterations[m_iterations.size() - 1].basis;
+    }
+
+    Basis getBasisPreview(void) const {
+        return m_iterations[m_iterations.size() - 2].basis;
+    }
+
+    size_t getBasisValPreview(const size_t i) const {
+        return m_iterations[m_iterations.size() - 2].basis[i];
+    }
+
+    size_t getBasisVal(const size_t i) const {
+        return m_iterations[m_iterations.size() - 1].basis[i];
+    }
+
+    size_t getBasisVal(const size_t iteration, const size_t i) const {
+        return m_iterations[iteration].basis[i];
+    }
+
+    Table getTable(const size_t iteration) const {
+        return m_iterations[iteration].table;
+    }
+
+    Table getTablePreview(void) const {
+        return m_iterations[m_iterations.size() - 1].table;
+    }
+
+    Table getTable(void) const {
+        return m_iterations[m_iterations.size() - 1].table;
+    }
+
+    double getTableValPreview(const size_t i, const size_t j) const {
+        return m_iterations[m_iterations.size() - 2].table[i][j];
+    }
+
+    double getTableVal(const size_t i, const size_t j) const {
+        return m_iterations[m_iterations.size() - 1].table[i][j];
+    }
+
+    double getTableVal(const size_t iteration,
+            const size_t i, const size_t j) const {
+        return m_iterations[iteration].table[i][j];
+    }
+
+    void setTotalVars(const size_t totalVars) {
+        m_totalVars = totalVars;
+    }
+
+    void setCols(const size_t cols) {
+        m_totalVars = cols - 1;
+    }
 
 public:
     Symplex(const System<_VARIABLES, _LIMITS> & system) :
@@ -426,7 +553,7 @@ public:
         std::cout << "Symplex method:" << std::endl;
 
         std::cout << "=== Final Simplex Table ===" << std::endl;
-        size_t totalCols = m_table.empty() ? 0 : _LIMITS + _VARIABLES + 1;
+        size_t totalCols = m_iterations[0].table.empty() ? 0 : _LIMITS + _VARIABLES + 1;
 
         std::cout << "Basis\t";
         for (size_t j = 0; j < totalCols - 1; ++j) {
@@ -436,16 +563,16 @@ public:
         std::cout << "--------------------------------------------------" << std::endl;
 
         for (size_t i = 0; i < _LIMITS; ++i) {
-            std::cout << "x" << m_basis[i] + 1 << "\t";
+            std::cout << "x" << getBasisVal(i) + 1 << "\t";
             for (size_t j = 0; j < totalCols; ++j) {
-                std::cout << m_table[i][j] << "\t";
+                std::cout << getTableVal(i, j) << "\t";
             }
             std::cout << std::endl;
         }
 
         std::cout << "Delta\t";
         for (size_t j = 0; j < totalCols; ++j) {
-            std::cout << m_table[_LIMITS][j] << "\t";
+            std::cout << getTableVal(_LIMITS, j) << "\t";
         }
         std::cout << "\n==================================================" << std::endl;
 
@@ -456,54 +583,122 @@ public:
         std::cout << "\n) -> L = " << getResult() << std::endl;
     }
 
+    double findMaxCoefficient() {
+        double maxVal{0.0};
+
+        Point seed{getSeed()};
+
+        for (size_t i{0}; i < _VARIABLES; i++)
+            maxVal = std::max(maxVal, std::abs(seed[i]));
+
+        for (size_t i{0}; i < _LIMITS; i++)
+            for (size_t j{0}; j <= getTotalCols(); j++)
+                if (i != _LIMITS)
+                    maxVal = std::max(maxVal, std::abs(getTableVal(i, j)));
+
+        if (std::abs(maxVal) < EPSILON) maxVal = 1.0; 
+
+        return maxVal * 1000;
+    }
+
     void calculate(void) override {
         const Limits limits{getLimits()};
-        Point seed{getSeed()};
-        bool isMin{false};
+        const Point seed{getSeed()};
+        const OperatorSeed type{getType()};
 
-        switch (getType()) {
-            case OperatorSeed::Min:
-                isMin = true;
-                for (size_t i{0}; i < _VARIABLES; ++i)
-                    seed[i] = -seed[i];
-                break;
+        size_t slackCount{0};
+        size_t artificialCount{0};
+
+        for (size_t i{0}; i < _LIMITS; ++i)
+            switch (limits[i].type) {
+                case OperatorLimit::Less:
+                    slackCount++;
+                    break;
+                case OperatorLimit::More:
+                    slackCount++;
+                    artificialCount++;
+                    break;
+                case OperatorLimit::Equal:
+                    artificialCount++;
+                    break;
+            }
+
+        setTotalVars(_VARIABLES + slackCount + artificialCount);
+
+        for (size_t j{0}; j < _VARIABLES; j++)
+            setNameVal(j, "x" + std::to_string(j + 1));
+
+        size_t currentSlack{_VARIABLES};
+        size_t currentArt{_VARIABLES + slackCount};
+        size_t artIndexCounter{0};
+
+        for (size_t i = 0; i < _LIMITS; ++i) {
+            for (size_t j = 0; j < _VARIABLES; ++j)
+                setTableVal(i, j, limits[i].x[j]);
+
+            setTableVal(i, getTotalVars(), limits[i].x[_VARIABLES]);
+
+            switch (limits[i].type) {
+                case OperatorLimit::Less:
+                    setTableVal(i, currentSlack, 1.0);
+                    setNameVal(currentSlack, "s" + std::to_string(i + 1));
+                    setBasisVal(i, currentSlack);
+                    currentSlack++;
+                    break;
+
+                case OperatorLimit::More:
+                    setTableVal(i, currentSlack, -1.0);
+                    setNameVal(currentSlack++, "s" + std::to_string(i + 1));
+                    setTableVal(i, currentArt, 1.0);
+                    setNameVal(currentArt, "a" + std::to_string(++artIndexCounter));
+                    setBasisVal(i, currentArt++);
+                    break;
+
+                case OperatorLimit::Equal:
+                    setTableVal(i, currentArt, 1.0);
+                    setNameVal(currentArt, "a" + std::to_string(++artIndexCounter));
+                    setBasisVal(i, currentArt++);
+                    break;
+            }
         }
+
+        double maxCoefficient{findMaxCoefficient()};
+
+        for (size_t i{0}; i < _VARIABLES; ++i)
+            setTableVal(_LIMITS, i,
+                    (type == OperatorSeed::Max) ? -seed[i] : seed[i]);
 
         for (size_t i{0}; i < _LIMITS; ++i) {
-            const Limit& lim = limits[i];
-            for (size_t j = 0; j < _VARIABLES; ++j) {
-                m_table[i][j] = lim.x[j];
+            size_t bVar{getBasisVal(i)};
+            if (bVar >= _VARIABLES + slackCount) {
+                for (size_t j{0}; j < getTotalCols(); ++j) {
+                    setTableVal(_LIMITS, j,
+                            getTableVal(_LIMITS, j) -
+                            maxCoefficient * getTableVal(i, j));
+                }
             }
-            m_table[i][_VARIABLES + _LIMITS] = lim.x[_VARIABLES];
-
-            m_table[i][_VARIABLES + i] = 1.0;
-            m_basis[i] = _VARIABLES + i;
-        }
-
-        for (size_t j = 0; j < _VARIABLES; ++j) {
-            m_table[_LIMITS][j] = -seed[j];
         }
 
         while (true) {
-            int pivotCol = -1;
-            double minEval = -EPSILON;
-            for (size_t j = 0; j < _VARIABLES + _LIMITS; ++j) {
-                if (m_table[_LIMITS][j] < minEval) {
-                    minEval = m_table[_LIMITS][j];
+            size_t pivotCol(-1);
+            double minEval{-EPSILON};
+            for (size_t j{0}; j < getTotalVars(); ++j) {
+                const double limitVal{getTableVal(_LIMITS, j)};
+                if (limitVal < minEval) {
+                    minEval = limitVal;
                     pivotCol = j;
                 }
             }
 
-            if (pivotCol == -1) {
-                m_isOptimalFound = true;
-                break;
-            }
+            if (pivotCol == (size_t)-1) break;
 
-            int pivotRow = -1;
-            double minRatio = 1e30;
-            for (size_t i = 0; i < _LIMITS; ++i) {
-                if (m_table[i][pivotCol] > EPSILON) {
-                    double ratio = m_table[i][_VARIABLES + _LIMITS] / m_table[i][pivotCol];
+            size_t pivotRow(-1);
+            double minRatio{std::numeric_limits<double>::max()};
+
+            for (size_t i{0}; i < _LIMITS; ++i) {
+                const double pivotVal{getTableVal(i, pivotCol)};
+                if (getTableVal(i, pivotCol) > EPSILON) {
+                    double ratio{getTableVal(i, getTotalVars()) / pivotVal};
                     if (ratio < minRatio) {
                         minRatio = ratio;
                         pivotRow = i;
@@ -511,44 +706,40 @@ public:
                 }
             }
 
-            if (pivotRow == -1) {
-                m_isOptimalFound = false;
-                return;
-            }
+            if (pivotRow == (size_t)-1) return;
 
-            m_basis[pivotRow] = pivotCol;
-            double pivotVal = m_table[pivotRow][pivotCol];
+            setBasisVal(pivotRow, pivotCol);
 
-            for (size_t j = 0; j <= _VARIABLES + _LIMITS; ++j) {
-                m_table[pivotRow][j] /= pivotVal;
-            }
+            const double pivotVal{getTableVal(pivotRow, pivotCol)};
 
-            for (size_t i = 0; i <= _LIMITS; ++i) {
-                if ((int)i != pivotRow) {
-                    double factor = m_table[i][pivotCol];
-                    for (size_t j = 0; j <= _VARIABLES + _LIMITS; ++j) {
-                        m_table[i][j] -= factor * m_table[pivotRow][j];
-                    }
+            for (size_t j{0}; j < getTotalCols(); ++j)
+                setTableVal(pivotRow, j,
+                        getTableVal(pivotRow, j) / pivotVal);
+
+            for (size_t i = 0; i <= _LIMITS; ++i)
+                if (i != pivotRow) {
+                    double factor{getTableVal(i, pivotCol)};
+                    for (size_t j{0}; j < getTotalCols(); ++j)
+                        setTableVal(i, j, getTableVal(i, j)
+                                - factor * getTableVal(pivotRow, j));
                 }
+        }
+
+        m_optimalPoint.fill(0.0);
+
+        for (size_t i{0}; i < _LIMITS; ++i) {
+            size_t bVar{m_iterations[m_iterations.size() - 1].basis[i]};
+            if (bVar < _VARIABLES) {
+                m_optimalPoint[bVar] = getTableVal(i, getTotalVars());
             }
         }
 
-        for (size_t i = 0; i < _VARIABLES; ++i) {
-            m_optimalPoint[i] = 0.0;
-        }
+        double result{0.0};
 
-        for (size_t i = 0; i < _LIMITS; ++i) {
-            if (m_basis[i] < _VARIABLES) {
-                m_optimalPoint[m_basis[i]] = m_table[i][_VARIABLES + _LIMITS];
-            }
+        for (size_t i{0}; i < _VARIABLES; ++i) {
+            result += seed[i] * m_optimalPoint[i];
         }
-
-        double finalL = m_table[_LIMITS][_VARIABLES + _LIMITS];
-        if (isMin) {
-            finalL = -finalL;
-        }
-
-        setResult(finalL);
+        setResult(result);
     }
 };
 
