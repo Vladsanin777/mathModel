@@ -413,6 +413,48 @@ private:
     Point m_optimalPoint;
     bool m_isOptimalFound{false};
     
+public:
+    Symplex(const System<_VARIABLES, _LIMITS> & system) :
+        System<_VARIABLES, _LIMITS>{system} {}
+
+    void printInfo(void) const override {
+        std::cout << "Simplex method:" << std::endl;
+        std::cout << "History iterations:" << std::endl;
+
+        std::cout << std::endl;
+
+        for (size_t i = 0; i < m_iterations.size(); ++i) {
+            printIteration(i);
+            std::cout << std::endl << std::endl;
+        }
+
+        std::cout << "Optimal point (\n\t";
+        for (size_t i = 0; i < _VARIABLES; ++i) {
+            std::cout << "x" << i + 1 << " = " << m_optimalPoint[i] << "; ";
+        }
+        std::cout << "\n) -> L = " << getResult() << std::endl;
+    }
+
+    void calculate(void) override {
+        clearIterations();
+        newIteration();
+
+        size_t slackCount{0}, artificialCount{0};
+
+        countVariables(slackCount, artificialCount);
+
+        setupConstraintsTableau(slackCount, artificialCount);
+
+        setupObjectiveRow(slackCount);
+
+        if (!runSimplexIterations()) {
+            return;
+        }
+
+        extractSolutionAndResult(slackCount);
+    }
+
+private:
     size_t getTotalVars(void) const {
         return m_totalVars;
     }
@@ -592,28 +634,6 @@ private:
         std::cout << std::endl;
     }
 
-public:
-    Symplex(const System<_VARIABLES, _LIMITS> & system) :
-        System<_VARIABLES, _LIMITS>{system} {}
-
-    void printInfo(void) const override {
-        std::cout << "Simplex method:" << std::endl;
-        std::cout << "History iterations:" << std::endl;
-
-        std::cout << std::endl;
-
-        for (size_t i = 0; i < m_iterations.size(); ++i) {
-            printIteration(i);
-            std::cout << std::endl << std::endl;
-        }
-
-        std::cout << "Optimal point (\n\t";
-        for (size_t i = 0; i < _VARIABLES; ++i) {
-            std::cout << "x" << i + 1 << " = " << m_optimalPoint[i] << "; ";
-        }
-        std::cout << "\n) -> L = " << getResult() << std::endl;
-    }
-
     double findMaxCoefficient() {
         double maxVal{0.0};
 
@@ -632,16 +652,9 @@ public:
         return maxVal * 1000;
     }
 
-    void calculate(void) override {
-        clearIterations();
-        newIteration();
-
-        const Limits limits{getLimits()};
-        const Point seed{getSeed()};
-        const OperatorSeed type{getType()};
-
-        size_t slackCount{0};
-        size_t artificialCount{0};
+    void countVariables(size_t & slackCount,
+            size_t & artificialCount) const {
+        const Limits& limits{getLimits()};
 
         for (size_t i{0}; i < _LIMITS; ++i)
             switch (limits[i].type) {
@@ -656,6 +669,11 @@ public:
                     artificialCount++;
                     break;
             }
+    }
+
+    void setupConstraintsTableau(const size_t slackCount,
+            const size_t artificialCount) {
+        const Limits& limits{getLimits()};
 
         setTotalVars(_VARIABLES + slackCount + artificialCount);
 
@@ -695,32 +713,38 @@ public:
                     break;
             }
         }
+    }
+
+    void setupObjectiveRow(const size_t slackCount) {
+        const Point & seed{getSeed()};
+        const OperatorSeed & type{getType()};
 
         double maxCoefficient{findMaxCoefficient()};
 
-        for (size_t i{0}; i < _VARIABLES; ++i)
+        for (size_t i{0}; i < _VARIABLES; i++)
             setTableVal(_LIMITS, i,
                     (type == OperatorSeed::Max) ? -seed[i] : seed[i]);
 
-        for (size_t i{0}; i < _LIMITS; ++i) {
+        for (size_t i{0}; i < _LIMITS; i++) {
             size_t bVar{getBasisVal(i)};
-            if (bVar >= _VARIABLES + slackCount) {
-                for (size_t j{0}; j < getTotalCols(); ++j) {
+            if (bVar >= _VARIABLES + slackCount)
+                for (size_t j{0}; j < getTotalCols(); j++)
                     setTableVal(_LIMITS, j,
                             getTableVal(_LIMITS, j) -
                             maxCoefficient * getTableVal(i, j));
-                }
-            }
         }
+    }
 
+    bool runSimplexIterations() {
         while (true) {
             size_t pivotCol(-1);
             double minEval{-EPSILON};
-            for (size_t j{0}; j < getTotalVars(); ++j) {
-                const double limitVal{getTableVal(_LIMITS, j)};
+            
+            for (size_t i{0}; i < getTotalVars(); i++) {
+                const double limitVal{getTableVal(_LIMITS, i)};
                 if (limitVal < minEval) {
                     minEval = limitVal;
-                    pivotCol = j;
+                    pivotCol = i;
                 }
             }
 
@@ -729,9 +753,9 @@ public:
             size_t pivotRow(-1);
             double minRatio{std::numeric_limits<double>::max()};
 
-            for (size_t i{0}; i < _LIMITS; ++i) {
+            for (size_t i{0}; i < _LIMITS; i++) {
                 const double pivotVal{getTableVal(i, pivotCol)};
-                if (getTableVal(i, pivotCol) > EPSILON) {
+                if (pivotVal > EPSILON) {
                     double ratio{getTableVal(i, getTotalVars()) / pivotVal};
                     if (ratio < minRatio) {
                         minRatio = ratio;
@@ -740,26 +764,30 @@ public:
                 }
             }
 
-            if (pivotRow == (size_t)-1) return;
+            if (pivotRow == (size_t)-1) return false;
 
             newIteration();
-
             setBasisVal(pivotRow, pivotCol);
 
             const double pivotVal{getTableVal(pivotRow, pivotCol)};
 
-            for (size_t j{0}; j < getTotalCols(); ++j)
-                setTableVal(pivotRow, j,
-                        getTableVal(pivotRow, j) / pivotVal);
+            for (size_t i{0}; i < getTotalCols(); i++)
+                setTableVal(pivotRow, i,
+                        getTableVal(pivotRow, i) / pivotVal);
 
-            for (size_t i = 0; i <= _LIMITS; ++i)
+            for (size_t i{0}; i <= _LIMITS; i++)
                 if (i != pivotRow) {
                     double factor{getTableVal(i, pivotCol)};
-                    for (size_t j{0}; j < getTotalCols(); ++j)
+                    for (size_t j{0}; j < getTotalCols(); j++)
                         setTableVal(i, j, getTableVal(i, j)
                                 - factor * getTableVal(pivotRow, j));
                 }
         }
+        return true;
+    }
+
+    void extractSolutionAndResult(const size_t slackCount) {
+        const Point& seed{getSeed()};
 
         m_optimalPoint.fill(0.0);
 
@@ -774,9 +802,9 @@ public:
 
         double result{0.0};
 
-        for (size_t i{0}; i < _VARIABLES; ++i) {
+        for (size_t i{0}; i < _VARIABLES; ++i)
             result += seed[i] * m_optimalPoint[i];
-        }
+
         setResult(result);
     }
 };
