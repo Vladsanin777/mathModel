@@ -30,6 +30,13 @@ int main(void) {
         }
     }
 
+    std::cout << "Array dp:" << std::endl;
+
+    for (const size_t & dpItem : dp) {
+        std::cout << dpItem << ' ';
+    }
+    std::cout << std::endl;
+
     std::vector<size_t> chosen_indices;
     size_t current_w{totalMass};
 
