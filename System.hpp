@@ -84,7 +84,7 @@ void backwardGaussianStroke(
         const MatrixExtended<_T, Rows> & matrix,
         VectorSolution<_T, Rows> & vector) {
     for (size_t i{Rows}; i-- > 0; ) {
-        if (abs(matrix[i][i]) < EPSILON) continue; 
+        if (std::abs(matrix[i][i]) < EPSILON) continue; 
 
         vector[i] = matrix[i][Rows];
 
@@ -317,7 +317,7 @@ private:
                     if (value < rhs - EPSILON) return false;
                     break;
                 case OperatorLimit::Equal:
-                    if (abs(value - rhs) > EPSILON) return false;
+                    if (std::abs(value - rhs) > EPSILON) return false;
                     break;
             }
         }
